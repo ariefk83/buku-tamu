@@ -1,10 +1,11 @@
 <!DOCTYPE html>
 <html lang="id">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Buku Tamu</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -78,6 +79,7 @@
                 opacity: 0;
                 transform: translateX(-20px);
             }
+
             to {
                 opacity: 1;
                 transform: translateX(0);
@@ -189,6 +191,7 @@
                 opacity: 0;
                 transform: translateX(20px);
             }
+
             to {
                 opacity: 1;
                 transform: translateX(0);
@@ -267,6 +270,7 @@
                 opacity: 0;
                 transform: translateY(-10px);
             }
+
             to {
                 opacity: 1;
                 transform: translateY(0);
@@ -303,6 +307,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <div class="header">
@@ -318,21 +323,11 @@
                 <form id="guestForm">
                     <div class="form-group">
                         <label for="nama">Nama</label>
-                        <input 
-                            type="text" 
-                            id="nama" 
-                            placeholder="Masukkan nama Anda"
-                            required
-                        >
+                        <input type="text" id="nama" placeholder="Masukkan nama Anda" required>
                     </div>
                     <div class="form-group">
-                        <label for="id">Nomor ID</label>
-                        <input 
-                            type="text" 
-                            id="id" 
-                            placeholder="Masukkan nomor ID"
-                            required
-                        >
+                        <label for="nomorId">Nomor ID</label>
+                        <input type="text" id="nomorId" placeholder="Masukkan nomor ID" required>
                     </div>
                     <button type="submit" class="btn-simpan" id="submitBtn">Simpan</button>
                 </form>
@@ -359,56 +354,108 @@
         // Supabase Configuration
         const SUPABASE_URL = 'https://hroiopyolrdfhhlxeocq.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhyb2lvcHlvbHJkZmhobHhlb2NxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyODY4NTQsImV4cCI6MjA5NTg2Mjg1NH0.1M2JO0cHW-3kGg5a3MF4wrNnLRvHOtUXBVP9SPLfc00';
-        const TABLE_NAME = 'guests'; // Nama tabel di Supabase
+        const TABLE_NAME = 'guests';
 
         log('CONFIG', { SUPABASE_URL, TABLE_NAME });
 
         // Initialize Supabase Client
-        const { createClient } = window.supabase;
-        const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        log('SUPABASE', 'Client initialized');
+        let supabaseClient = null;
+        try {
+            if (!window.supabase || !window.supabase.createClient) {
+                throw new Error('Supabase library gagal dimuat. Periksa koneksi internet Anda.');
+            }
+            const { createClient } = window.supabase;
+            supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            log('SUPABASE', 'Client initialized successfully');
+        } catch (initError) {
+            console.error('Supabase init error:', initError);
+            document.addEventListener('DOMContentLoaded', () => {
+                const errEl = document.getElementById('errorMessage');
+                if (errEl) {
+                    errEl.textContent = '❌ ' + initError.message;
+                    errEl.classList.add('show');
+                }
+            });
+        }
 
         // DOM Elements
         const form = document.getElementById('guestForm');
         const guestList = document.getElementById('guestList');
         const namaInput = document.getElementById('nama');
-        const idInput = document.getElementById('id');
+        const idInput = document.getElementById('nomorId');
         const submitBtn = document.getElementById('submitBtn');
         const successMessage = document.getElementById('successMessage');
         const errorMessage = document.getElementById('errorMessage');
         const loadingIndicator = document.getElementById('loadingIndicator');
 
-        // Load guests saat halaman dimuat
-        loadGuests();
+        // Tes koneksi lalu load data
+        async function init() {
+            if (!supabaseClient) {
+                guestList.innerHTML = '<div class="empty-state">❌ Supabase tidak tersambung</div>';
+                return;
+            }
+
+            log('INIT', 'Testing connection...');
+            try {
+                // Test koneksi dengan query sederhana
+                const { data, error } = await supabaseClient
+                    .from(TABLE_NAME)
+                    .select('id', { count: 'exact', head: true });
+
+                if (error) {
+                    log('CONNECTION_TEST', 'Error: ' + error.message);
+                    throw error;
+                }
+
+                log('CONNECTION_TEST', 'OK - Terhubung ke Supabase ✓');
+            } catch (connError) {
+                console.error('Connection test failed:', connError);
+                const msg = formatErrorMessage(connError);
+                errorMessage.textContent = '❌ Gagal terhubung ke Supabase: ' + msg;
+                errorMessage.classList.add('show');
+            }
+
+            // Load data meskipun test gagal (biarkan loadGuests handle errornya)
+            await loadGuests();
+        }
+
+        init();
 
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            const nama = namaInput.value.trim();
-            const id = idInput.value.trim();
+            if (!supabaseClient) {
+                errorMessage.textContent = '❌ Supabase belum tersambung. Refresh halaman.';
+                errorMessage.classList.add('show');
+                return;
+            }
 
-            if (nama && id) {
-                await addGuest(nama, id);
+            const nama = namaInput.value.trim();
+            const nomorId = idInput.value.trim();
+
+            if (nama && nomorId) {
+                await addGuest(nama, nomorId);
             }
         });
 
-        async function addGuest(nama, id) {
+        async function addGuest(nama, nomorId) {
             submitBtn.disabled = true;
+            submitBtn.textContent = 'Menyimpan...';
             errorMessage.classList.remove('show');
             successMessage.classList.remove('show');
 
-            log('SUBMIT', { nama, id });
+            log('SUBMIT', { nama, nomorId });
 
             try {
+                // Hanya kirim data yang diperlukan, biarkan DB handle created_at/updated_at
                 const payload = {
                     nama: nama,
-                    nomor_id: id,
-                    created_at: new Date().toISOString()
+                    nomor_id: nomorId
                 };
 
                 log('PAYLOAD', payload);
 
-                const { data, error } = await supabase
+                const { data, error } = await supabaseClient
                     .from(TABLE_NAME)
                     .insert([payload])
                     .select();
@@ -416,7 +463,7 @@
                 log('RESPONSE', { data, error });
 
                 if (error) {
-                    throw new Error(formatErrorMessage(error));
+                    throw error;
                 }
 
                 // Tampilkan success message
@@ -439,26 +486,51 @@
                 errorMessage.classList.add('show');
             } finally {
                 submitBtn.disabled = false;
+                submitBtn.textContent = 'Simpan';
             }
         }
 
         function formatErrorMessage(error) {
-            if (!error) return 'Unknown error';
-            
-            // Error dari Supabase
+            if (!error) return 'Error tidak diketahui';
+
+            // Handle network/fetch errors
+            if (error instanceof TypeError && error.message === 'Failed to fetch') {
+                return 'Gagal terhubung ke server. Periksa koneksi internet Anda atau URL Supabase.';
+            }
+
+            // Handle HTTP status codes dari Supabase
+            if (error.code === 'PGRST301' || error.code === '42P01') {
+                return 'Tabel "guests" belum dibuat. Silakan jalankan SQL query dari SETUP_SUPABASE.md';
+            }
+
+            if (error.code === '42501') {
+                return 'Row Level Security error. Periksa policy INSERT/SELECT di Supabase.';
+            }
+
+            if (error.code === '23505') {
+                return 'Data duplikat. Entri dengan ID ini sudah ada.';
+            }
+
+            // Error dari Supabase REST API
             if (error.message) {
                 if (error.message.includes('relation') && error.message.includes('does not exist')) {
                     return 'Tabel "guests" belum dibuat. Silakan jalankan SQL query dari SETUP_SUPABASE.md';
                 }
                 if (error.message.includes('violates row level security')) {
-                    return 'Row Level Security error. Periksa policy di Supabase.';
+                    return 'Row Level Security error. Periksa policy di Supabase Dashboard.';
                 }
-                if (error.message.includes('CORS')) {
-                    return 'CORS Error. Periksa konfigurasi CORS di Supabase.';
+                if (error.message.includes('JWT')) {
+                    return 'API Key tidak valid. Periksa SUPABASE_ANON_KEY Anda.';
+                }
+                if (error.message.includes('FetchError') || error.message.includes('NetworkError')) {
+                    return 'Gagal terhubung ke server. Periksa koneksi internet Anda.';
                 }
                 return error.message;
             }
-            
+
+            if (error.details) return error.details;
+            if (error.hint) return error.hint;
+
             return JSON.stringify(error);
         }
 
@@ -468,8 +540,14 @@
 
             log('LOAD_GUESTS', 'Starting...');
 
+            if (!supabaseClient) {
+                guestList.innerHTML = '<div class="empty-state">❌ Supabase tidak tersambung</div>';
+                loadingIndicator.classList.remove('active');
+                return;
+            }
+
             try {
-                const { data, error } = await supabase
+                const { data, error } = await supabaseClient
                     .from(TABLE_NAME)
                     .select('*')
                     .order('created_at', { ascending: false });
@@ -500,16 +578,16 @@
                     `;
                     guestList.appendChild(guestItem);
                 });
-                
+
                 log('LOAD_GUESTS', `Loaded ${data.length} guests`);
 
             } catch (error) {
                 console.error('Error loading guests:', error);
                 const errorMsg = formatErrorMessage(error);
                 log('LOAD_ERROR', errorMsg);
-                errorMessage.textContent = '❌ ' + errorMsg;
+                errorMessage.textContent = '❌ Gagal memuat data: ' + errorMsg;
                 errorMessage.classList.add('show');
-                guestList.innerHTML = '<div class="empty-state">Gagal memuat data</div>';
+                guestList.innerHTML = '<div class="empty-state">Gagal memuat data. Periksa console (F12) untuk detail.</div>';
             } finally {
                 loadingIndicator.classList.remove('active');
             }
@@ -522,17 +600,22 @@
         }
 
         // Real-time subscription (opsional - untuk update otomatis)
-        supabase
-            .channel('guests_channel')
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: TABLE_NAME },
-                (payload) => {
-                    console.log('Change detected:', payload);
-                    loadGuests();
-                }
-            )
-            .subscribe();
+        if (supabaseClient) {
+            supabaseClient
+                .channel('guests_channel')
+                .on(
+                    'postgres_changes',
+                    { event: '*', schema: 'public', table: TABLE_NAME },
+                    (payload) => {
+                        log('REALTIME', 'Change detected: ' + payload.eventType);
+                        loadGuests();
+                    }
+                )
+                .subscribe((status) => {
+                    log('REALTIME_STATUS', status);
+                });
+        }
     </script>
 </body>
+
 </html>
