@@ -350,14 +350,23 @@
     </div>
 
     <script>
+        // ===== DEBUG MODE =====
+        const DEBUG = true; // Set ke false untuk production
+        const log = (label, data) => {
+            if (DEBUG) console.log(`[BUKU TAMU] ${label}:`, data);
+        };
+
         // Supabase Configuration
         const SUPABASE_URL = 'https://hroiopyolrdfhhlxeocq.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhyb2lvcHlvbHJkZmhobHhlb2NxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyODY4NTQsImV4cCI6MjA5NTg2Mjg1NH0.1M2JO0cHW-3kGg5a3MF4wrNnLRvHOtUXBVP9SPLfc00';
         const TABLE_NAME = 'guests'; // Nama tabel di Supabase
 
+        log('CONFIG', { SUPABASE_URL, TABLE_NAME });
+
         // Initialize Supabase Client
         const { createClient } = window.supabase;
         const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        log('SUPABASE', 'Client initialized');
 
         // DOM Elements
         const form = document.getElementById('guestForm');
@@ -388,21 +397,30 @@
             errorMessage.classList.remove('show');
             successMessage.classList.remove('show');
 
+            log('SUBMIT', { nama, id });
+
             try {
+                const payload = {
+                    nama: nama,
+                    nomor_id: id,
+                    created_at: new Date().toISOString()
+                };
+
+                log('PAYLOAD', payload);
+
                 const { data, error } = await supabase
                     .from(TABLE_NAME)
-                    .insert([
-                        {
-                            nama: nama,
-                            nomor_id: id,
-                            created_at: new Date().toISOString()
-                        }
-                    ])
+                    .insert([payload])
                     .select();
 
-                if (error) throw error;
+                log('RESPONSE', { data, error });
+
+                if (error) {
+                    throw new Error(formatErrorMessage(error));
+                }
 
                 // Tampilkan success message
+                log('SUCCESS', 'Data berhasil disimpan');
                 successMessage.classList.add('show');
                 setTimeout(() => {
                     successMessage.classList.remove('show');
@@ -414,17 +432,41 @@
                 await loadGuests();
 
             } catch (error) {
-                console.error('Error:', error);
-                errorMessage.textContent = '❌ ' + (error.message || 'Gagal menyimpan data');
+                console.error('ERROR DETAIL:', error);
+                const errorMsg = formatErrorMessage(error);
+                log('ERROR', errorMsg);
+                errorMessage.textContent = '❌ ' + errorMsg;
                 errorMessage.classList.add('show');
             } finally {
                 submitBtn.disabled = false;
             }
         }
 
+        function formatErrorMessage(error) {
+            if (!error) return 'Unknown error';
+            
+            // Error dari Supabase
+            if (error.message) {
+                if (error.message.includes('relation') && error.message.includes('does not exist')) {
+                    return 'Tabel "guests" belum dibuat. Silakan jalankan SQL query dari SETUP_SUPABASE.md';
+                }
+                if (error.message.includes('violates row level security')) {
+                    return 'Row Level Security error. Periksa policy di Supabase.';
+                }
+                if (error.message.includes('CORS')) {
+                    return 'CORS Error. Periksa konfigurasi CORS di Supabase.';
+                }
+                return error.message;
+            }
+            
+            return JSON.stringify(error);
+        }
+
         async function loadGuests() {
             loadingIndicator.classList.add('active');
             guestList.innerHTML = '';
+
+            log('LOAD_GUESTS', 'Starting...');
 
             try {
                 const { data, error } = await supabase
@@ -432,9 +474,12 @@
                     .select('*')
                     .order('created_at', { ascending: false });
 
+                log('LOAD_RESPONSE', { data, error, count: data?.length });
+
                 if (error) throw error;
 
                 if (!data || data.length === 0) {
+                    log('LOAD_GUESTS', 'Tidak ada data');
                     guestList.innerHTML = '<div class="empty-state">Belum ada pengunjung</div>';
                     loadingIndicator.classList.remove('active');
                     return;
@@ -455,10 +500,14 @@
                     `;
                     guestList.appendChild(guestItem);
                 });
+                
+                log('LOAD_GUESTS', `Loaded ${data.length} guests`);
 
             } catch (error) {
                 console.error('Error loading guests:', error);
-                errorMessage.textContent = '❌ Gagal memuat data: ' + error.message;
+                const errorMsg = formatErrorMessage(error);
+                log('LOAD_ERROR', errorMsg);
+                errorMessage.textContent = '❌ ' + errorMsg;
                 errorMessage.classList.add('show');
                 guestList.innerHTML = '<div class="empty-state">Gagal memuat data</div>';
             } finally {
