@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buku Tamu</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 1000px;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 20px;
+            text-align: center;
+            border-bottom: 4px solid #fff;
+        }
+
+        .header h1 {
+            font-size: 48px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            padding: 40px;
+        }
+
+        .form-section h2 {
+            font-size: 20px;
+            color: #333;
+            margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .form-section h2::before {
+            content: '✎';
+            font-size: 24px;
+            color: #667eea;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+            animation: slideInLeft 0.6s ease-out;
+        }
+
+        @keyframes slideInLeft {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 600;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 15px;
+            transition: all 0.3s ease;
+            font-family: inherit;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn-simpan {
+            width: 100%;
+            padding: 14px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-simpan:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-simpan:active {
+            transform: translateY(0);
+        }
+
+        .list-section h2 {
+            font-size: 20px;
+            color: #333;
+            margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .list-section h2::before {
+            content: '📋';
+            font-size: 24px;
+        }
+
+        .guest-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+            padding-right: 10px;
+        }
+
+        .guest-list::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .guest-list::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+
+        .guest-list::-webkit-scrollbar-thumb {
+            background: #667eea;
+            border-radius: 10px;
+        }
+
+        .guest-item {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            padding: 15px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            animation: slideInRight 0.5s ease-out;
+            border-left: 4px solid #667eea;
+            transition: all 0.3s ease;
+        }
+
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .guest-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+        }
+
+        .guest-info {
+            flex: 1;
+        }
+
+        .guest-name {
+            font-weight: 700;
+            color: #333;
+            font-size: 15px;
+            margin-bottom: 4px;
+        }
+
+        .guest-id {
+            color: #666;
+            font-size: 13px;
+        }
+
+        .guest-id-label {
+            color: #999;
+            font-size: 12px;
+            text-transform: uppercase;
+            margin-right: 5px;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #999;
+            padding: 30px 20px;
+            font-style: italic;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            color: #667eea;
+            padding: 20px;
+            font-weight: 600;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .btn-simpan:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+
+        .success-message {
+            display: none;
+            background: #d4edda;
+            color: #155724;
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border-left: 4px solid #28a745;
+            animation: slideIn 0.3s ease;
+        }
+
+        .success-message.show {
+            display: block;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .error-message {
+            display: none;
+            background: #f8d7da;
+            color: #721c24;
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border-left: 4px solid #f5c6cb;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        @media (max-width: 768px) {
+            .content {
+                grid-template-columns: 1fr;
+                gap: 30px;
+            }
+
+            .header h1 {
+                font-size: 36px;
+            }
+
+            .guest-list {
+                max-height: 300px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Buku Tamu</h1>
+        </div>
+
+        <div class="content">
+            <!-- Form Section -->
+            <div class="form-section">
+                <h2>Tambah Pengunjung</h2>
+                <div class="success-message" id="successMessage">✓ Data berhasil disimpan!</div>
+                <div class="error-message" id="errorMessage"></div>
+                <form id="guestForm">
+                    <div class="form-group">
+                        <label for="nama">Nama</label>
+                        <input 
+                            type="text" 
+                            id="nama" 
+                            placeholder="Masukkan nama Anda"
+                            required
+                        >
+                    </div>
+                    <div class="form-group">
+                        <label for="id">Nomor ID</label>
+                        <input 
+                            type="text" 
+                            id="id" 
+                            placeholder="Masukkan nomor ID"
+                            required
+                        >
+                    </div>
+                    <button type="submit" class="btn-simpan" id="submitBtn">Simpan</button>
+                </form>
+            </div>
+
+            <!-- List Section -->
+            <div class="list-section">
+                <h2>Daftar Pengunjung</h2>
+                <div class="loading" id="loadingIndicator">Memuat data...</div>
+                <div class="guest-list" id="guestList">
+                    <div class="empty-state">Belum ada pengunjung</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ===== DEBUG MODE =====
+        const DEBUG = true; // Set ke false untuk production
+        const log = (label, data) => {
+            if (DEBUG) console.log(`[BUKU TAMU] ${label}:`, data);
+        };
+
+        // Supabase Configuration
+        const SUPABASE_URL = 'https://hroiopyolrdfhhlxeocq.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhyb2lvcHlvbHJkZmhobHhlb2NxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyODY4NTQsImV4cCI6MjA5NTg2Mjg1NH0.1M2JO0cHW-3kGg5a3MF4wrNnLRvHOtUXBVP9SPLfc00';
+        const TABLE_NAME = 'guests'; // Nama tabel di Supabase
+
+        log('CONFIG', { SUPABASE_URL, TABLE_NAME });
+
+        // Initialize Supabase Client
+        const { createClient } = window.supabase;
+        const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        log('SUPABASE', 'Client initialized');
+
+        // DOM Elements
+        const form = document.getElementById('guestForm');
+        const guestList = document.getElementById('guestList');
+        const namaInput = document.getElementById('nama');
+        const idInput = document.getElementById('id');
+        const submitBtn = document.getElementById('submitBtn');
+        const successMessage = document.getElementById('successMessage');
+        const errorMessage = document.getElementById('errorMessage');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+
+        // Load guests saat halaman dimuat
+        loadGuests();
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const nama = namaInput.value.trim();
+            const id = idInput.value.trim();
+
+            if (nama && id) {
+                await addGuest(nama, id);
+            }
+        });
+
+        async function addGuest(nama, id) {
+            submitBtn.disabled = true;
+            errorMessage.classList.remove('show');
+            successMessage.classList.remove('show');
+
+            log('SUBMIT', { nama, id });
+
+            try {
+                const payload = {
+                    nama: nama,
+                    nomor_id: id,
+                    created_at: new Date().toISOString()
+                };
+
+                log('PAYLOAD', payload);
+
+                const { data, error } = await supabase
+                    .from(TABLE_NAME)
+                    .insert([payload])
+                    .select();
+
+                log('RESPONSE', { data, error });
+
+                if (error) {
+                    throw new Error(formatErrorMessage(error));
+                }
+
+                // Tampilkan success message
+                log('SUCCESS', 'Data berhasil disimpan');
+                successMessage.classList.add('show');
+                setTimeout(() => {
+                    successMessage.classList.remove('show');
+                }, 3000);
+
+                // Reset form dan reload list
+                form.reset();
+                namaInput.focus();
+                await loadGuests();
+
+            } catch (error) {
+                console.error('ERROR DETAIL:', error);
+                const errorMsg = formatErrorMessage(error);
+                log('ERROR', errorMsg);
+                errorMessage.textContent = '❌ ' + errorMsg;
+                errorMessage.classList.add('show');
+            } finally {
+                submitBtn.disabled = false;
+            }
+        }
+
+        function formatErrorMessage(error) {
+            if (!error) return 'Unknown error';
+            
+            // Error dari Supabase
+            if (error.message) {
+                if (error.message.includes('relation') && error.message.includes('does not exist')) {
+                    return 'Tabel "guests" belum dibuat. Silakan jalankan SQL query dari SETUP_SUPABASE.md';
+                }
+                if (error.message.includes('violates row level security')) {
+                    return 'Row Level Security error. Periksa policy di Supabase.';
+                }
+                if (error.message.includes('CORS')) {
+                    return 'CORS Error. Periksa konfigurasi CORS di Supabase.';
+                }
+                return error.message;
+            }
+            
+            return JSON.stringify(error);
+        }
+
+        async function loadGuests() {
+            loadingIndicator.classList.add('active');
+            guestList.innerHTML = '';
+
+            log('LOAD_GUESTS', 'Starting...');
+
+            try {
+                const { data, error } = await supabase
+                    .from(TABLE_NAME)
+                    .select('*')
+                    .order('created_at', { ascending: false });
+
+                log('LOAD_RESPONSE', { data, error, count: data?.length });
+
+                if (error) throw error;
+
+                if (!data || data.length === 0) {
+                    log('LOAD_GUESTS', 'Tidak ada data');
+                    guestList.innerHTML = '<div class="empty-state">Belum ada pengunjung</div>';
+                    loadingIndicator.classList.remove('active');
+                    return;
+                }
+
+                guestList.innerHTML = '';
+                data.forEach((guest, index) => {
+                    const guestItem = document.createElement('div');
+                    guestItem.className = 'guest-item';
+                    guestItem.style.animationDelay = (index * 0.1) + 's';
+                    guestItem.innerHTML = `
+                        <div class="guest-info">
+                            <div class="guest-name">${escapeHtml(guest.nama)}</div>
+                            <div class="guest-id">
+                                <span class="guest-id-label">ID:</span>${escapeHtml(guest.nomor_id)}
+                            </div>
+                        </div>
+                    `;
+                    guestList.appendChild(guestItem);
+                });
+                
+                log('LOAD_GUESTS', `Loaded ${data.length} guests`);
+
+            } catch (error) {
+                console.error('Error loading guests:', error);
+                const errorMsg = formatErrorMessage(error);
+                log('LOAD_ERROR', errorMsg);
+                errorMessage.textContent = '❌ ' + errorMsg;
+                errorMessage.classList.add('show');
+                guestList.innerHTML = '<div class="empty-state">Gagal memuat data</div>';
+            } finally {
+                loadingIndicator.classList.remove('active');
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Real-time subscription (opsional - untuk update otomatis)
+        supabase
+            .channel('guests_channel')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: TABLE_NAME },
+                (payload) => {
+                    console.log('Change detected:', payload);
+                    loadGuests();
+                }
+            )
+            .subscribe();
+    </script>
+</body>
+</html>
